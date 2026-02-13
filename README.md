@@ -1,0 +1,3 @@
+# astrbot_plugin_group_name_changer
+
+插件

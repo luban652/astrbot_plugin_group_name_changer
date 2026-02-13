@@ -1,0 +1,59 @@
+{
+  "enable_plugin": {
+    "description": "是否启用插件",
+    "type": "bool",
+    "hint": "启用后插件将开始工作",
+    "default": true,
+    "obvious_hint": true
+  },
+  "white_list": {
+    "description": "群白名单",
+    "type": "list",
+    "hint": "只有白名单中的群会触发自动改名（留空则所有群都生效）",
+    "default": [],
+    "obvious_hint": false
+  },
+  "black_list": {
+    "description": "群黑名单",
+    "type": "list",
+    "hint": "黑名单中的群不会触发自动改名",
+    "default": [],
+    "obvious_hint": false
+  },
+  "strict_mode": {
+    "description": "严格模式",
+    "type": "bool",
+    "hint": "启用后只有纯数字消息才会触发改名（不含空格等字符）",
+    "default": true,
+    "obvious_hint": false
+  },
+  "digit_length": {
+    "description": "触发改名的数字长度",
+    "type": "int",
+    "hint": "当消息为指定长度的纯数字时触发改名（默认5位）",
+    "default": 5,
+    "obvious_hint": false,
+    "options": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ]
+  },
+  "admin_only": {
+    "description": "仅管理员可触发",
+    "type": "bool",
+    "hint": "启用后只有群管理员发送的数字消息才会触发改名",
+    "default": false,
+    "obvious_hint": false
+  },
+  "log_changes": {
+    "description": "记录改名日志",
+    "type": "bool",
+    "hint": "是否记录群名更改日志",
+    "default": true,
+    "obvious_hint": false
+  }
+}

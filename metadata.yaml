@@ -1,0 +1,5 @@
+name: astrbot_plugin_group_name_changer
+author: luban652
+description: 在群聊中检测到单独的五个数字消息时自动更改群名，支持aiocqhttp平台，提供群聊黑白名单管理功能
+version: 1.0.0
+repo: https://github.com/luban652/astrbot_plugin_group_name_changer
