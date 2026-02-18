@@ -16,22 +16,16 @@
   "whitelist": {
     "description": "群聊白名单",
     "type": "list",
-    "hint": "在此列表中的群聊才会触发修改群名功能",
+    "hint": "在此列表中的群聊才会触发修改群名功能（填写群号，如[123456,789012]）",
     "default": [],
-    "obvious_hint": false,
-    "editor_mode": true,
-    "editor_language": "json",
-    "editor_theme": "vs-light"
+    "obvious_hint": false
   },
   "blacklist": {
     "description": "群聊黑名单",
     "type": "list",
-    "hint": "在此列表中的群聊不会触发修改群名功能",
+    "hint": "在此列表中的群聊不会触发修改群名功能（填写群号，如[123456,789012]）",
     "default": [],
-    "obvious_hint": false,
-    "editor_mode": true,
-    "editor_language": "json",
-    "editor_theme": "vs-light"
+    "obvious_hint": false
   },
   "number_length": {
     "description": "触发修改的数字长度",
@@ -58,6 +52,13 @@
     "description": "是否记录群名修改日志",
     "type": "bool",
     "hint": "开启后会记录每次群名修改的信息",
+    "default": true,
+    "obvious_hint": false
+  },
+  "send_feedback": {
+    "description": "是否发送修改结果反馈",
+    "type": "bool",
+    "hint": "开启后会在群内回复修改成功/失败/冷却等提示信息",
     "default": true,
     "obvious_hint": false
   }
