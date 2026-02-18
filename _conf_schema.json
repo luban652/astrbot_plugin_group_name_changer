@@ -1,36 +1,42 @@
 {
   "enable_plugin": {
-    "description": "是否启用插件",
+    "description": "是否启用插件功能",
     "type": "bool",
-    "hint": "启用后插件将开始工作",
+    "hint": "开启后插件将开始检测群聊消息并自动修改群名",
     "default": true,
     "obvious_hint": true
   },
-  "white_list": {
-    "description": "群白名单",
-    "type": "list",
-    "hint": "只有白名单中的群会触发自动改名（留空则所有群都生效）",
-    "default": [],
-    "obvious_hint": false
-  },
-  "black_list": {
-    "description": "群黑名单",
-    "type": "list",
-    "hint": "黑名单中的群不会触发自动改名",
-    "default": [],
-    "obvious_hint": false
-  },
-  "strict_mode": {
-    "description": "严格模式",
+  "require_admin": {
+    "description": "是否需要管理员权限",
     "type": "bool",
-    "hint": "启用后只有纯数字消息才会触发改名（不含空格等字符）",
-    "default": true,
+    "hint": "开启后只有管理员发送的数字消息才会触发修改群名",
+    "default": false,
     "obvious_hint": false
   },
-  "digit_length": {
-    "description": "触发改名的数字长度",
+  "whitelist": {
+    "description": "群聊白名单",
+    "type": "list",
+    "hint": "在此列表中的群聊才会触发修改群名功能",
+    "default": [],
+    "obvious_hint": false,
+    "editor_mode": true,
+    "editor_language": "json",
+    "editor_theme": "vs-light"
+  },
+  "blacklist": {
+    "description": "群聊黑名单",
+    "type": "list",
+    "hint": "在此列表中的群聊不会触发修改群名功能",
+    "default": [],
+    "obvious_hint": false,
+    "editor_mode": true,
+    "editor_language": "json",
+    "editor_theme": "vs-light"
+  },
+  "number_length": {
+    "description": "触发修改的数字长度",
     "type": "int",
-    "hint": "当消息为指定长度的纯数字时触发改名（默认5位）",
+    "hint": "当消息中包含指定长度的纯数字时会触发修改群名",
     "default": 5,
     "obvious_hint": false,
     "options": [
@@ -38,21 +44,20 @@
       4,
       5,
       6,
-      7,
-      8
+      7
     ]
   },
-  "admin_only": {
-    "description": "仅管理员可触发",
-    "type": "bool",
-    "hint": "启用后只有群管理员发送的数字消息才会触发改名",
-    "default": false,
+  "cooldown_time": {
+    "description": "修改群名的冷却时间(秒)",
+    "type": "int",
+    "hint": "防止短时间内频繁修改群名",
+    "default": 60,
     "obvious_hint": false
   },
   "log_changes": {
-    "description": "记录改名日志",
+    "description": "是否记录群名修改日志",
     "type": "bool",
-    "hint": "是否记录群名更改日志",
+    "hint": "开启后会记录每次群名修改的信息",
     "default": true,
     "obvious_hint": false
   }
