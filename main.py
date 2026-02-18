@@ -1,165 +1,158 @@
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
+from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
-from typing import List, Union
+from typing import Dict, List
+import time
+import json
 
-@register("astrbot_plugin_group_name_changer", "Your Name", 
-          "在群聊中检测到单独的五个数字消息时自动更改群名，支持aiocqhttp平台，提供群聊黑白名单管理功能", 
+@register("astrbot_plugin_group_name_changer", "Anonymous", 
+          "自动检测群聊中的五个数字消息并更改群名为该数字，支持aiocqhttp平台，提供黑白名单管理功能", 
           "1.0.0", "")
 class GroupNameChangerPlugin(Star):
-    def __init__(self, context: Context, config: dict):
+    def __init__(self, context: Context, config: Dict):
         super().__init__(context)
         self.config = config
-        logger.info("群名修改插件初始化完成")
+        self.last_change_time: Dict[str, float] = {}  # 记录每个群最后修改时间 {group_id: timestamp}
         
+        # 初始化配置
+        self.enable_plugin = self.config.get("enable_plugin", True)
+        self.require_admin = self.config.get("require_admin", False)
+        self.whitelist = self.config.get("whitelist", [])
+        self.blacklist = self.config.get("blacklist", [])
+        self.number_length = self.config.get("number_length", 5)
+        self.cooldown_time = self.config.get("cooldown_time", 60)
+        self.log_changes = self.config.get("log_changes", True)
+        
+        logger.info("群名修改插件已加载")
+
     async def terminate(self):
         '''插件卸载时调用'''
         logger.info("群名修改插件已卸载")
 
-    def _check_group_permission(self, group_id: str) -> bool:
-        """
-        检查群是否符合触发条件
-        :param group_id: 群号
-        :return: 是否允许触发
-        """
-        # 检查插件是否启用
-        if not self.config.get("enable_plugin", True):
-            return False
+    @filter.command("添加白名单")
+    async def add_to_whitelist(self, event: AstrMessageEvent):
+        '''将当前群聊添加到白名单'''
+        group_id = event.get_group_id()
+        if not group_id:
+            yield event.plain_result("请在群聊中使用此指令")
+            return
             
-        white_list = self.config.get("white_list", [])
-        black_list = self.config.get("black_list", [])
-        
-        # 白名单优先于黑名单
-        if white_list:
-            return group_id in white_list
-        return group_id not in black_list
+        if group_id in self.whitelist:
+            yield event.plain_result("当前群聊已在白名单中")
+            return
+            
+        self.whitelist.append(group_id)
+        self.config["whitelist"] = self.whitelist
+        self.config.save_config()
+        yield event.plain_result("已添加当前群聊到白名单")
 
-    def _is_valid_number(self, message: str) -> bool:
-        """
-        检查消息是否为有效的数字
-        :param message: 消息内容
-        :return: 是否为有效数字
-        """
-        digit_length = self.config.get("digit_length", 5)
-        strict_mode = self.config.get("strict_mode", True)
-        
-        if strict_mode:
-            return message.isdigit() and len(message) == digit_length
-        return message.strip().isdigit() and len(message.strip()) == digit_length
+    @filter.command("移除白名单")
+    async def remove_from_whitelist(self, event: AstrMessageEvent):
+        '''将当前群聊从白名单移除'''
+        group_id = event.get_group_id()
+        if not group_id:
+            yield event.plain_result("请在群聊中使用此指令")
+            return
+            
+        if group_id not in self.whitelist:
+            yield event.plain_result("当前群聊不在白名单中")
+            return
+            
+        self.whitelist.remove(group_id)
+        self.config["whitelist"] = self.whitelist
+        self.config.save_config()
+        yield event.plain_result("已从白名单移除当前群聊")
 
-    @filter.platform_adapter_type(filter.PlatformAdapterType.AIOCQHTTP)
+    @filter.command("添加黑名单")
+    async def add_to_blacklist(self, event: AstrMessageEvent):
+        '''将当前群聊添加到黑名单'''
+        group_id = event.get_group_id()
+        if not group_id:
+            yield event.plain_result("请在群聊中使用此指令")
+            return
+            
+        if group_id in self.blacklist:
+            yield event.plain_result("当前群聊已在黑名单中")
+            return
+            
+        self.blacklist.append(group_id)
+        self.config["blacklist"] = self.blacklist
+        self.config.save_config()
+        yield event.plain_result("已添加当前群聊到黑名单")
+
+    @filter.command("移除黑名单")
+    async def remove_from_blacklist(self, event: AstrMessageEvent):
+        '''将当前群聊从黑名单移除'''
+        group_id = event.get_group_id()
+        if not group_id:
+            yield event.plain_result("请在群聊中使用此指令")
+            return
+            
+        if group_id not in self.blacklist:
+            yield event.plain_result("当前群聊不在黑名单中")
+            return
+            
+        self.blacklist.remove(group_id)
+        self.config["blacklist"] = self.blacklist
+        self.config.save_config()
+        yield event.plain_result("已从黑名单移除当前群聊")
+
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
+    @filter.platform_adapter_type(filter.PlatformAdapterType.AIOCQHTTP)
     async def on_group_message(self, event: AstrMessageEvent):
-        """
-        处理群消息事件，检测是否符合改名条件
-        """
+        '''监听群消息，检测符合条件的数字并修改群名'''
         try:
             # 检查插件是否启用
-            if not self.config.get("enable_plugin", True):
+            if not self.enable_plugin:
                 return
                 
             group_id = event.get_group_id()
-            message_str = event.message_str
+            message_str = event.message_str.strip()
             
-            # 检查群权限
-            if not self._check_group_permission(group_id):
+            # 检查群聊是否在黑名单中
+            if group_id in self.blacklist:
                 return
                 
-            # 检查管理员权限
-            if self.config.get("admin_only", False) and not event.is_admin():
+            # 检查群聊是否在白名单中（如果白名单不为空）
+            if self.whitelist and group_id not in self.whitelist:
                 return
                 
-            # 检查是否为有效数字
-            if not self._is_valid_number(message_str):
+            # 检查是否需要管理员权限
+            if self.require_admin and not event.get_sender_is_admin():
                 return
                 
-            # 记录日志
-            if self.config.get("log_changes", True):
-                logger.info(f"准备将群 {group_id} 改名为: {message_str}")
+            # 检查消息是否为纯数字且长度符合要求
+            if not message_str.isdigit() or len(message_str) != self.number_length:
+                return
                 
+            # 检查冷却时间
+            current_time = time.time()
+            last_time = self.last_change_time.get(group_id, 0)
+            if current_time - last_time < self.cooldown_time:
+                if self.log_changes:
+                    logger.info(f"群 {group_id} 修改群名冷却中，跳过修改")
+                return
+                
+            # 记录修改时间
+            self.last_change_time[group_id] = current_time
+            
             # 调用QQ协议端API修改群名
             if event.get_platform_name() == "aiocqhttp":
                 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
                 assert isinstance(event, AiocqhttpMessageEvent)
                 client = event.bot
+                
                 payloads = {
-                    "group_id": group_id,
+                    "group_id": int(group_id),
                     "group_name": message_str
                 }
-                await client.api.call_action('set_group_name', **payloads)
                 
+                try:
+                    ret = await client.api.call_action('set_group_name', **payloads)
+                    if self.log_changes:
+                        logger.info(f"成功修改群 {group_id} 名称为 {message_str}, 返回: {ret}")
+                except Exception as e:
+                    logger.error(f"修改群名失败: {str(e)}")
+                    
         except Exception as e:
             logger.error(f"处理群消息时出错: {str(e)}")
-
-    @filter.command("添加白名单")
-    async def add_to_white_list(self, event: AstrMessageEvent):
-        """添加群到白名单"""
-        await self._manage_list(event, "white_list", "添加")
-
-    @filter.command("移除白名单")
-    async def remove_from_white_list(self, event: AstrMessageEvent):
-        """从白名单中移除群"""
-        await self._manage_list(event, "white_list", "移除")
-
-    @filter.command("添加黑名单")
-    async def add_to_black_list(self, event: AstrMessageEvent):
-        """添加群到黑名单"""
-        await self._manage_list(event, "black_list", "添加")
-
-    @filter.command("移除黑名单")
-    async def remove_from_black_list(self, event: AstrMessageEvent):
-        """从黑名单中移除群"""
-        await self._manage_list(event, "black_list", "移除")
-
-    async def _manage_list(self, event: AstrMessageEvent, list_name: str, operation: str):
-        """
-        管理黑白名单的通用方法
-        :param event: 消息事件
-        :param list_name: 名单名称 (white_list 或 black_list)
-        :param operation: 操作类型 (添加 或 移除)
-        """
-        try:
-            group_id = event.get_group_id()
-            if not group_id:
-                yield event.plain_result("请在群聊中使用此命令")
-                return
-                
-            current_list = self.config.get(list_name, [])
-            
-            if operation == "添加":
-                if group_id in current_list:
-                    yield event.plain_result(f"该群已在{list_name}中")
-                else:
-                    current_list.append(group_id)
-                    yield event.plain_result(f"已成功将群添加到{list_name}")
-            else:
-                if group_id in current_list:
-                    current_list.remove(group_id)
-                    yield event.plain_result(f"已成功从{list_name}中移除群")
-                else:
-                    yield event.plain_result(f"该群不在{list_name}中")
-                    
-            # 更新配置
-            self.config[list_name] = current_list
-            self.config.save_config()
-            
-        except Exception as e:
-            logger.error(f"管理{list_name}时出错: {str(e)}")
-            yield event.plain_result(f"操作失败: {str(e)}")
-
-    @filter.command("查看名单")
-    async def view_lists(self, event: AstrMessageEvent):
-        """查看当前的黑白名单状态"""
-        try:
-            white_list = self.config.get("white_list", [])
-            black_list = self.config.get("black_list", [])
-            
-            message = "当前名单状态:\n"
-            message += f"白名单({len(white_list)}个): {', '.join(white_list) if white_list else '空'}\n"
-            message += f"黑名单({len(black_list)}个): {', '.join(black_list) if black_list else '空'}\n"
-            message += f"当前模式: {'白名单优先' if white_list else '黑名单过滤'}"
-            
-            yield event.plain_result(message)
-        except Exception as e:
-            logger.error(f"查看名单时出错: {str(e)}")
-            yield event.plain_result(f"获取名单失败: {str(e)}")
