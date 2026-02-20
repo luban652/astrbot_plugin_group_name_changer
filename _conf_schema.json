@@ -54,12 +54,5 @@
     "hint": "开启后会记录每次群名修改的信息",
     "default": true,
     "obvious_hint": false
-  },
-  "send_feedback": {
-    "description": "是否发送修改结果反馈",
-    "type": "bool",
-    "hint": "开启后会在群内回复修改成功/失败/冷却等提示信息",
-    "default": true,
-    "obvious_hint": false
   }
 }
